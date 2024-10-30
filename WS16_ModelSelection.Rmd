@@ -1,0 +1,203 @@
+---
+title: "Worksheet 16: Model Selection"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+---
+
+```{r global_options, include=FALSE}
+# The following code is a basic setup of options for your document
+knitr::opts_chunk$set(echo = TRUE,
+                      eval = TRUE, 
+                      warning = TRUE,
+                      message = FALSE,
+                      fig.align = "center", 
+                      R.options = list(max.print=50))
+
+# Edit the file starting below
+
+```
+
+In this worksheet, we will discuss how to select a model and give examples of overfitted models.
+
+## 1. Set up
+
+We will use the `tidyverse` package as always:
+
+```{r, message = FALSE}
+# Load packages
+library(tidyverse)
+```
+
+We will work with the data from the following article: 
+
+Hickey, W. (2007). The Ultimate Halloween Candy Power Ranking. FiveThirtyEight. 
+https://fivethirtyeight.com/videos/the-ultimate-halloween-candy-power-ranking/
+
+```{r}
+# Upload data from github
+candy <- read_csv("https://raw.githubusercontent.com/laylaguyot/datasets/main//Halloween-candy.csv")
+
+# Take a quick look
+head(candy)
+```
+
+This dataset is the result of an experiment: "Pit dozens of fun-sized candy varietals against one another, and let the wisdom of the crowd decide which one was best. While we don’t know who exactly voted, we do know this: 8,371 different IP addresses voted on about 269,000 randomly generated matchups." 
+
+Here are the top 19 winners:
+
+![](https://pbs.twimg.com/media/FA6KdxlXsAAo7VI.jpg)
+
+We are interested on determining what features of the candy might affect its win percentage. In that case, what is the outcome? What do you think could be a good predictor?
+
+**Write sentences here!**
+
+
+#### **Try it! There is one variable that would not be helpful as a predictor. Which one? Actually, try predicting the win percentage based on this variable. How does the model looks like (use the`summary` function)?**
+
+```{r}
+# Write and submit code here!
+
+```
+
+**Write sentences here!**
+
+
+There are two observations in this dataset that are not actually candies!
+
+```{r}
+# Check these competitor names
+candy |> filter(str_detect(competitorname, "One"))
+```
+
+So let's get rid of them:
+
+```{r}
+# Upload data from github
+candy <- candy |>
+  filter(!str_detect(competitorname, "One"))
+```
+
+## 2. Choosing predictors
+
+### a. Exploring relationships
+
+We can visually inspect if there is a relationship between a potential predictor and the outcome.
+
+#### **Try it! Pick the predictor that you think would best explain the win percentage of a candy. Use `ggplot` to represent the relationship between `winpercent` and the predictor with an appropriate graph. Does there appear to be a relationship to predict the win percentage?**
+
+```{r}
+# Write and submit code here!
+
+```
+
+**Write sentences here!**
+
+
+### b. Model fit and predictions
+
+We can make fit a model based on our data to make predictions for the outcome.
+
+#### **Try it! Keep working with the predictor that you previously picked. Fit a model and look at the summary. Interpret the sign (+ or -) of the estimate.**
+
+```{r}
+# Write and submit code here!
+
+```
+
+**Write sentences here!**
+
+
+### c. Performance
+
+We should evaluate the performance of a linear regression model with the RMSE and adjusted $R^2$. 
+
+#### **Try it! Keep working with the same predictor. Report the values of RMSE and adjusted $R^2$ and compare them to a model with a different predictors. How to choose which model is better?**
+
+```{r}
+# Write and submit code here!
+
+```
+
+**Write sentences here!**
+
+
+## 3. Comparing models
+
+### a. Using multiple predictors
+
+Since we can also include more than one predictor, comparing models with different predictors can be tedious. One strategy is to fit all predictors and only focus on the ones that show more significance in the summary. This is not the best strategy but it can help reducing the number of predictors.
+
+Let's fit all predictors to explain win percentage:
+
+```{r}
+# Fit the model with all predictors but not the one that does not make sense
+fit_lin <- lm(winpercent ~ ., data = candy |> select(-competitorname))
+summary(fit_lin)
+```
+
+Check for `*` in the last column. Which features are "significant" while taking into account all other variables?
+
+**Write sentences here!**
+
+
+#### **Try it! Fit the model with only including the most significant predictors. How does adjusted $R^2$ change?**
+
+```{r}
+# Write and submit code here!
+
+```
+
+**Write sentences here!**
+
+
+There are other strategies for selecting predictors but this is out of scope for our class. While having multiple predictors can improve our ability to make predictions, having too many predictors may fit the data too specifically. That's what we call overfitting. the model may perform well on our data but will struggle making predictions for new data because it has learned  specific patterns rather than generalizable trends.
+
+### b. Testing for "new" data
+
+Since it is usually difficult to gather new data, we use the data that we have available and split it into what we call a train data (to train the model) and a test data (to test the model). 
+
+For example, consider 80% of the `candy` data as the train data:
+
+```{r}
+# Sample 80% of the dataset into the train data
+train_data <- sample_frac(candy, 0.8)
+```
+
+Now we train the model we chose previously based on that train data: 
+
+```{r}
+# Fit the model with significant predictors on train data
+fit_train <- lm(winpercent ~ chocolate + fruity + peanutyalmondy + sugarpercent, data = train_data)
+summary(fit_train)
+```
+
+Let's calculate the RMSE for that model:
+
+```{r}
+# RMSE for the model fitted on the train data
+sqrt(mean(resid(fit_train)^2))
+```
+
+Did we all get the same? Why or why not?
+
+**Write sentences here!**
+
+
+How is that trained model useful for predicting "new" data? Consider the rest of the data to test the model:
+
+```{r}
+# Get the rest of the dataset into the test data
+test_data <- anti_join(candy, train_data, by = "competitorname")
+```
+
+Then evaluate the RMSE for the test data:
+
+```{r}
+# Evaluate performance with RMSE on test data
+sqrt(mean((test_data$winpercent - predict(fit_train, newdata = test_data))^2,))
+```
+
+Comparing the value of the RMSE for the test data to the value of the RMSE for the train data can help us evaluate how our model would be able to generalize to new data. If the test RMSE is much higher than the train RMSE, this suggests overfitting: indicating that while the model may perform well on known data, it struggles to make accurate predictions with new data. We will talk more about that with cross-validation.
